@@ -1,14 +1,21 @@
 var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+var ObjectId = mongoose.Schema.Types.ObjectId;
 
-// Define your schema - what fields will a Task object have?
-var taskSchema = new Schema({
+
+var taskSchema = new mongoose.Schema ({
+
   text: String,
-  completed: Boolean
+  completed : Boolean,
+
+  /* A reference to the User object who created this task
+   It is possible to populate this field with all of the
+   details of the User object by using the populate() function */
+
+  _creator : { type : ObjectId, ref : 'User' }
+
 });
 
-//Compile taskSchema into mongoose model, whose name will be 'Task'.
+
 var Task = mongoose.model('Task', taskSchema);
 
-//And export the Task so it can be used by other parts of your code.
 module.exports = Task;

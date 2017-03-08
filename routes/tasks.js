@@ -3,13 +3,31 @@ var router = express.Router();
 var Task = require('../models/task.js');
 
 
+/* User should be logged in before can do any of the things in this file.
+ * Create a middleware function to check if user is logged in, redirect to
+   * authentication page if not. */
+
+function isLoggedIn(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/auth')
+
+}
+
+/* This will require all of the routes in this file to use the
+isLoggedIn middleware, don't need to specify it  */
+router.use(isLoggedIn);
+
+
 /* GET home page, a list of incomplete tasks . */
 router.get('/', function(req, res, next) {
 
-  Task.find({completed:false}, function(err, tasks){
+  Task.find({ _creator : req.user, completed:false}, function(err, tasks){
     if (err) {
       return next(err);
     }
+
     res.render('index', { title: 'TODO list' , tasks: tasks });
   });
 });
@@ -19,7 +37,7 @@ router.get('/', function(req, res, next) {
 /* GET all completed tasks. */
 router.get('/completed', function(req, res, next){
 
-  Task.find({completed:true}, function(err, tasks){
+  Task.find({ _creator : req.user, completed:true}, function(err, tasks){
     if (err) {
       return next(err);
     }
@@ -32,7 +50,7 @@ router.get('/completed', function(req, res, next){
 /* Mark all tasks as done. */
 router.post('/alldone', function(req, res, next){
 
-  Task.update( {completed:false}, {completed:true}, {multi:true}, function(err){
+  Task.update( {_creator : req.user, completed:false}, {completed:true}, {multi:true}, function(err){
 
     if (err) {
       return next(err);
@@ -46,13 +64,28 @@ router.post('/alldone', function(req, res, next){
 
 
 
-
 /* Show details of one task */
 router.get('/task/:id', function(req, res, next){
 
   Task.findById(req.params.id, function(err, task){
+
     if (err) {
-      return next(err);
+
+      if (err.name == 'CastError') {
+        // Invalid ObjectId
+        return res.status(404).send('Not a valid task ID. Task not found.');
+      }
+
+      return next(err);  // Other DB errors.
+    }
+
+    if (!task) {
+      return res.status(404).send('Task not found.');
+    }
+
+    // Verify that this task was created by the currently logged in user
+    if (!task._creator.equals(req.user._id)) {
+      return res.status(403).send('This is not your task!');  // 403 Unauthorized
     }
     return res.render('task_detail', {task:task})
   })
@@ -69,7 +102,7 @@ router.post('/add', function(req, res, next){
 
   else {
     // Save new task with text provided, and completed = false
-    var task = Task({ text : req.body.text, completed: false});
+    var task = Task({ _creator: req.user, text : req.body.text, completed: false});
 
     task.save(function(err) {
       if (err) {
@@ -93,9 +126,7 @@ router.post('/done', function(req, res, next){
     }
 
     if (!task) {
-      var req_err = new Error('Task not found');
-      req_err.status = 404;
-      return next(req_err);     // Task not found error
+      return res.status(404).next();
     }
 
     req.flash('info', 'Task marked as done');
