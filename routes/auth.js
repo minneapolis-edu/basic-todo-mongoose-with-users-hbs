@@ -15,6 +15,7 @@ router.post('/login', passport.authenticate('local-login', {
   failureFlash: true
 }));
 
+
 router.post('/signup', passport.authenticate('local-signup', {
   successRedirect: '/',
   failureRedirect: '/auth',
@@ -26,5 +27,6 @@ router.get('/logout', function(req, res, next){
   req.logout();
   res.redirect('/')
 });
+
 
 module.exports = router;

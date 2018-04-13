@@ -20,16 +20,15 @@ isLoggedIn middleware, don't need to specify it  */
 router.use(isLoggedIn);
 
 
-/* GET home page, a list of incomplete tasks . */
+/* GET home page, a list of incomplete tasks for the current user. */
 router.get('/', function(req, res, next) {
 
-  Task.find({ _creator : req.user, completed:false}, function(err, tasks){
-    if (err) {
-      next(err);
-    }
-    else {
-      res.render('index', { title: 'TODO list' , tasks: tasks });
-    }
+  Task.find({ _creator : req.user, completed:false})
+  .then( (tasks) => {
+    res.render('index', { title: 'TODO list' , tasks: tasks });
+  })
+  .catch( (err) => {
+    next(err);
   });
 });
 
@@ -49,19 +48,18 @@ router.get('/completed', function(req, res, next){
 });
 
 
-/* Mark all tasks as done. */
+/* Mark all tasks as done for the current user. */
 router.post('/alldone', function(req, res, next){
 
-  Task.update( {_creator : req.user, completed:false}, {completed:true}, {multi:true}, function(err){
-
-    if (err) {
-      next(err);
-    }
-    else {
-      req.flash('info', 'All tasks are done!');
-      res.redirect('/')
-    }
+  Task.update( {_creator: req.user, completed: false}, {completed: true}, {multi: true})
+  .then( (result) => {
+    req.flash('info', 'All tasks are done!');
+    res.redirect('/')
+  })
+  .catch( (err) => {
+    next(err);
   });
+
 });
 
 
@@ -69,17 +67,7 @@ router.post('/alldone', function(req, res, next){
 /* Show details of one task */
 router.get('/task/:id', function(req, res, next){
 
-  Task.findById(req.params.id, function(err, task){
-
-    if (err) {
-
-      if (err.name == 'CastError') {
-        // Invalid ObjectId
-        res.status(404).send('Not a valid task ID. Task not found.');
-      } else {
-        next(err);  // Other DB errors.
-      }
-    }
+  Task.findById(req.params.id).then( (task) => {
 
     if (!task) {
       res.status(404).send('Task not found.');
@@ -94,28 +82,34 @@ router.get('/task/:id', function(req, res, next){
       res.render('task_detail', {task:task})
     }
 
+  }).catch( (err) => {
+    next(err);
   });
+  
 });
 
 
 /* POST Add new task, then redirect to task list */
 router.post('/add', function(req, res, next){
 
+  // Check for text entered. Or, we could require the text field in the model,
+  // not bother with this check, and check for DB saving errors instead.
+  // This approach would be cleaner if there were many checks for a valid task.
   if (!req.body || !req.body.text) {
     req.flash('error', 'Please enter some text');
     res.redirect('/');
   }
 
   else {
-    // Save new task with text provided, and completed = false
+    // Save new task with text provided, for the current user, and completed = false
     var task = Task({ _creator: req.user, text : req.body.text, completed: false});
 
-    task.save(function(err) {
-      if (err) {
-        next(err);
-      } else {
-        res.redirect('/')
-      }
+    task.save()
+    .then(() => {
+      res.redirect('/');
+    })
+    .catch((err) => {
+      next(err);
     });
   }
 
@@ -125,22 +119,21 @@ router.post('/add', function(req, res, next){
 /* Mark a task as done. Task _id should be provided as req.body parameter */
 router.post('/done', function(req, res, next){
 
-  var id = req.body._id;
-  Task.findOneAndUpdate({_id: req.body._id, _creator: req.user.id}, {completed:true}, function(err, task){
+  Task.findOneAndUpdate( {_id: req.body._id, _creator: req.user.id}, {completed: true})
+  .then( (task) => {
 
-    if (err) {
-      next(err);
-    }
-
-    else if (!task) {
+    if (!task) {
       res.status(403).send('This is not your task!');
     }
 
     else {
-
       req.flash('info', 'Task marked as done');
       res.redirect('/')
     }
+
+  })
+  .catch( (err) => {
+    next(err);
   });
 
 });
@@ -149,24 +142,21 @@ router.post('/done', function(req, res, next){
 /* Delete a task. Task _id is in req.body */
 router.post('/delete', function(req, res,next){
 
-  var id = req.body._id;
-
-  Task.findOneAndRemove({_id: req.body._id, _creator: req.user.id}, {completed:true}, function(err, task){
-
-    if (err) {
-      next(err);    // For database errors
-    }
-
-    else if (!task)  { // No task deleted, therefore the ID is not valid, or it did not belong to the current logged in user.
-      res.status(403).send('This is not your task!');
-    }
-
-    else {
-      req.flash('info', 'Deleted');
-      res.redirect('/')
-    }
-
+  Task.findOneAndRemove( {_id: req.body._id, _creator: req.user.id}, {completed: true} )
+  .then( (task) => {
+    if (!task)  { // No task deleted, therefore the ID is not valid,
+      //or did not belong to the current logged in user.
+       res.status(403).send('This is not your task!');
+     }
+     else {
+       req.flash('info', 'Task deleted');
+       res.redirect('/')
+     }
   })
+  .catch( (err) => {
+    next(err);
+  });
+
 });
 
 
