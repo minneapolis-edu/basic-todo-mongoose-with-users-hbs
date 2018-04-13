@@ -77,7 +77,7 @@ module.exports = function(passport) {
         //And save. If no errors, return new User
         newUser.save(function(err){
           if (err) { return done(err); }
-          return done(null, newUser, req.flash('signupMsg', 'Welcome, ' + username));
+          return done(null, newUser, req.flash('info', 'Welcome, ' + username));
         });
       });
     });
@@ -109,7 +109,7 @@ module.exports = function(passport) {
         }
 
         // If no errors - username and password valid. Return callback with User object
-        return done(null, user);
+        return done(null, user, req.flash('info', 'Welcome, ' + username));
       });
     });
   }));

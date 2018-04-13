@@ -28,16 +28,13 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-var mongo_pw = process.env.MONGO_PW;
-var url = 'mongodb://admin:' + mongo_pw + '@localhost:27017/todo?authSource=admin';
-var session_url = 'mongodb://admin:' + mongo_pw + '@localhost:27017/todo_sessions?authSource=admin';
-
+var mongo_url = process.env.MONGO_URL;
 
 app.use(session({
   secret: 'replace me with long random string',
   resave: true,
   saveUninitialized: true,
-  store: new MongoDBStore( { url: session_url })
+  store: new MongoDBStore( { uri: mongo_url })
 }));
 
 
@@ -46,11 +43,10 @@ app.use(passport.initialize());
 app.use(passport.session());         // This creates an req.user variable for logged in users.
 app.use(flash());
 
-mongoose.connect(url);
+mongoose.connect(mongo_url);
 
-app.use('/auth', auth);  // Order matters.
+app.use('/auth', auth);  // auth first. Order matters!!
 app.use('/', tasks);
-
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

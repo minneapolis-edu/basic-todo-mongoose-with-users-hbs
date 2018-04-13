@@ -4,15 +4,15 @@ var Task = require('../models/task.js');
 
 
 /* User should be logged in before can do any of the things in this file.
- * Create a middleware function to check if user is logged in, redirect to
-   * authentication page if not. */
+* Create a middleware function to check if user is logged in, redirect to
+* authentication page if not. */
 
 function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) {
-    return next();
+    next();
+  } else {
+    res.redirect('/auth')
   }
-  res.redirect('/auth')
-
 }
 
 /* This will require all of the routes in this file to use the
@@ -25,10 +25,11 @@ router.get('/', function(req, res, next) {
 
   Task.find({ _creator : req.user, completed:false}, function(err, tasks){
     if (err) {
-      return next(err);
+      next(err);
     }
-
-    res.render('index', { title: 'TODO list' , tasks: tasks });
+    else {
+      res.render('index', { title: 'TODO list' , tasks: tasks });
+    }
   });
 });
 
@@ -37,11 +38,12 @@ router.get('/', function(req, res, next) {
 /* GET all completed tasks. */
 router.get('/completed', function(req, res, next){
 
-  Task.find({ _creator : req.user, completed:true}, function(err, tasks){
+  Task.find({ _creator : req.user, completed:true }, function(err, tasks){
     if (err) {
-      return next(err);
+      next(err);
+    } else {
+      res.render('tasks_completed', { title: 'TODO list' , tasks: tasks });
     }
-    res.render('tasks_completed', { title: 'TODO list' , tasks: tasks });
   });
 
 });
@@ -53,12 +55,12 @@ router.post('/alldone', function(req, res, next){
   Task.update( {_creator : req.user, completed:false}, {completed:true}, {multi:true}, function(err){
 
     if (err) {
-      return next(err);
+      next(err);
     }
-
-    req.flash('info', 'All tasks are done!');
-    return res.redirect('/')
-
+    else {
+      req.flash('info', 'All tasks are done!');
+      res.redirect('/')
+    }
   });
 });
 
@@ -73,22 +75,26 @@ router.get('/task/:id', function(req, res, next){
 
       if (err.name == 'CastError') {
         // Invalid ObjectId
-        return res.status(404).send('Not a valid task ID. Task not found.');
+        res.status(404).send('Not a valid task ID. Task not found.');
+      } else {
+        next(err);  // Other DB errors.
       }
-
-      return next(err);  // Other DB errors.
     }
 
     if (!task) {
-      return res.status(404).send('Task not found.');
+      res.status(404).send('Task not found.');
     }
 
     // Verify that this task was created by the currently logged in user
-    if (!task._creator.equals(req.user._id)) {
-      return res.status(403).send('This is not your task!');  // 403 Unauthorized
+    else if (!task._creator.equals(req.user._id)) {
+      res.status(403).send('This is not your task!');  // 403 Unauthorized
     }
-    return res.render('task_detail', {task:task})
-  })
+
+    else {
+      res.render('task_detail', {task:task})
+    }
+
+  });
 });
 
 
@@ -106,9 +112,10 @@ router.post('/add', function(req, res, next){
 
     task.save(function(err) {
       if (err) {
-        return next(err);
+        next(err);
+      } else {
+        res.redirect('/')
       }
-      return res.redirect('/')
     });
   }
 
@@ -119,19 +126,21 @@ router.post('/add', function(req, res, next){
 router.post('/done', function(req, res, next){
 
   var id = req.body._id;
-  Task.findByIdAndUpdate(id, {completed:true}, function(err, task){
+  Task.findOneAndUpdate({_id: req.body._id, _creator: req.user.id}, {completed:true}, function(err, task){
 
     if (err) {
-      return next(err);
+      next(err);
     }
 
-    if (!task) {
-      return res.status(404).next();
+    else if (!task) {
+      res.status(403).send('This is not your task!');
     }
 
-    req.flash('info', 'Task marked as done');
-    return res.redirect('/')
+    else {
 
+      req.flash('info', 'Task marked as done');
+      res.redirect('/')
+    }
   });
 
 });
@@ -142,14 +151,20 @@ router.post('/delete', function(req, res,next){
 
   var id = req.body._id;
 
-  Task.findByIdAndRemove(id, function(err){
+  Task.findOneAndRemove({_id: req.body._id, _creator: req.user.id}, {completed:true}, function(err, task){
 
     if (err) {
-      return next(err);    // For database errors
+      next(err);    // For database errors
     }
 
-    req.flash('info', 'Deleted');
-    return res.redirect('/')
+    else if (!task)  { // No task deleted, therefore the ID is not valid, or it did not belong to the current logged in user.
+      res.status(403).send('This is not your task!');
+    }
+
+    else {
+      req.flash('info', 'Deleted');
+      res.redirect('/')
+    }
 
   })
 });
