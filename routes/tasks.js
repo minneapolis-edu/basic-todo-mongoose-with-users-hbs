@@ -119,7 +119,7 @@ router.post('/add', function(req, res, next){
 /* Mark a task as done. Task _id should be provided as req.body parameter */
 router.post('/done', function(req, res, next){
 
-  Task.findOneAndUpdate( {_id: req.body._id, _creator: req.user.id}, {completed: true})
+  Task.findOneAndUpdate( {_id: req.body._id, _creator: req.user._id}, {completed: true})
   .then( (task) => {
 
     if (!task) {
