@@ -79,13 +79,13 @@ router.get('/task/:id', function(req, res, next){
     }
 
     else {
-      res.render('task_detail', {task:task})
+      res.render('task_detail', {task: task} )
     }
 
   }).catch( (err) => {
     next(err);
   });
-  
+
 });
 
 
@@ -142,7 +142,7 @@ router.post('/done', function(req, res, next){
 /* Delete a task. Task _id is in req.body */
 router.post('/delete', function(req, res,next){
 
-  Task.findOneAndRemove( {_id: req.body._id, _creator: req.user.id}, {completed: true} )
+  Task.findOneAndRemove( {_id: req.body._id, _creator: req.user._id} )
   .then( (task) => {
     if (!task)  { // No task deleted, therefore the ID is not valid,
       //or did not belong to the current logged in user.
